@@ -377,11 +377,18 @@ $("photo-in").addEventListener("change", () => {
     const W = 330, H = 400, c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
     // Photos with a see-through background keep it (saved as PNG and fitted whole, so a cut-out isn't cropped);
     // ordinary photos are cropped to fill the frame and saved as a smaller JPEG.
-    let clear = false;
-    try { const t = document.createElement("canvas"); t.width = 64; t.height = 64; const tg = t.getContext("2d"); tg.drawImage(img, 0, 0, 64, 64);
-      const px = tg.getImageData(0, 0, 64, 64).data; for (let i = 3; i < px.length; i += 4) if (px[i] < 250) { clear = true; break; } } catch (e) {}
-    const s = clear ? Math.min(W / img.width, H / img.height) : Math.max(W / img.width, H / img.height), w = img.width * s, h = img.height * s;
-    g.drawImage(img, (W - w) / 2, clear ? H - h : (H - h) / 2, w, h); URL.revokeObjectURL(url);
+    // Find the visible part of the picture: a see-through background is trimmed away so the subject sits centred.
+    let clear = false, sx = 0, sy = 0, sw = img.width, sh = img.height;
+    try {
+      const k = Math.min(1, 800 / Math.max(img.width, img.height)), tw = Math.max(1, Math.round(img.width * k)), th = Math.max(1, Math.round(img.height * k));
+      const t = document.createElement("canvas"); t.width = tw; t.height = th; const tg = t.getContext("2d"); tg.drawImage(img, 0, 0, tw, th);
+      const px = tg.getImageData(0, 0, tw, th).data; let x0 = tw, y0 = th, x1 = -1, y1 = -1;
+      for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) { const a = px[(y * tw + x) * 4 + 3]; if (a < 250) clear = true; if (a > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+      if (clear && x1 >= x0 && y1 >= y0) { sx = x0 / k; sy = y0 / k; sw = (x1 - x0 + 1) / k; sh = (y1 - y0 + 1) / k; }
+    } catch (e) {}
+    // Cut-outs are fitted whole and centred, with a little breathing room; ordinary photos are cropped to fill the frame.
+    const pad = clear ? 0.92 : 1, s = clear ? Math.min(W / sw, H / sh) * pad : Math.max(W / sw, H / sh), w = sw * s, h = sh * s;
+    g.drawImage(img, sx, sy, sw, sh, (W - w) / 2, (H - h) / 2, w, h); URL.revokeObjectURL(url);
     state.photo = clear ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85); renderPhoto(); refresh();
     if (!photoSaved) setStatus("The photo is on the dossier, but it's too big to keep in this browser's draft. Save the image before you close the page.");
   };
