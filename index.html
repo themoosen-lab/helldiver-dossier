@@ -35,11 +35,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .preview p { color: #c9c3b4; margin: 0; }
 
 /* ============ THE SHEET ============ */
-.sheet { container-type: inline-size; position: relative; color: var(--ink); background:
-  radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.35), transparent 60%),
-  radial-gradient(60% 50% at 100% 100%, rgba(120,95,50,.13), transparent 70%),
-  radial-gradient(50% 40% at 0% 85%, rgba(120,95,50,.09), transparent 70%),
-  var(--paper);
+.sheet { container-type: inline-size; position: relative; color: var(--ink); background: var(--paper);
   padding: 26px 30px 30px; box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.25); }
 .sheet.capture { width: 780px !important; box-shadow: none; }
 .sheet::before { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(var(--navy-rgb), .25); pointer-events: none; }
@@ -103,6 +99,7 @@ textarea.f:focus { border-style: solid; border-color: var(--navy); }
 .photo { position: relative; border-left: 1.5px solid var(--rule); display: grid; place-items: center; padding: 8px; min-height: 100%; }
 .photo .frame { width: 132px; height: 160px; border: 1.5px solid var(--rule); background: repeating-linear-gradient(135deg, rgba(var(--navy-rgb), .06) 0 6px, transparent 6px 12px); display: grid; place-items: center; text-align: center; overflow: hidden; position: relative; }
 .photo .frame img { width: 100%; height: 100%; object-fit: cover; filter: none; }
+.photo .frame.has { background: var(--paper); }
 .photo .frame span { font-family: var(--head); font-weight: 700; font-size: 13px; letter-spacing: .14em; color: var(--dim); padding: 6px; }
 .photo .pbtns { display: flex; gap: 6px; margin-top: 6px; }
 .photo .pbtns button, .photo .pbtns label { border: 1px solid rgba(var(--navy-rgb), .45); background: rgba(255,255,255,.3); color: var(--navy); padding: 4px 8px; font-family: var(--head); font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; }
@@ -259,6 +256,7 @@ function renderEvents() {
   document.querySelectorAll("[data-ev]").forEach((t) => { t.value = state.events[+t.dataset.ev]; grow(t); });
 }
 function renderPhoto() {
+  $("frame").classList.toggle("has", !!state.photo);
   $("frame").innerHTML = state.photo ? `<img src="${state.photo}" alt="Dossier photo">` : `<span>No image<br>on file</span>`;
   $("photo-x").hidden = !state.photo;
 }
@@ -376,9 +374,14 @@ $("photo-in").addEventListener("change", () => {
   const img = new Image(), url = URL.createObjectURL(f);
   img.onload = () => {
     const W = 330, H = 400, c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
-    const s = Math.max(W / img.width, H / img.height), w = img.width * s, h = img.height * s;
-    g.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); URL.revokeObjectURL(url);
-    state.photo = c.toDataURL("image/jpeg", 0.82); renderPhoto(); refresh();
+    // Photos with a see-through background keep it (saved as PNG and fitted whole, so a cut-out isn't cropped);
+    // ordinary photos are cropped to fill the frame and saved as a smaller JPEG.
+    let clear = false;
+    try { const t = document.createElement("canvas"); t.width = 64; t.height = 64; const tg = t.getContext("2d"); tg.drawImage(img, 0, 0, 64, 64);
+      const px = tg.getImageData(0, 0, 64, 64).data; for (let i = 3; i < px.length; i += 4) if (px[i] < 250) { clear = true; break; } } catch (e) {}
+    const s = clear ? Math.min(W / img.width, H / img.height) : Math.max(W / img.width, H / img.height), w = img.width * s, h = img.height * s;
+    g.drawImage(img, (W - w) / 2, clear ? H - h : (H - h) / 2, w, h); URL.revokeObjectURL(url);
+    state.photo = clear ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85); renderPhoto(); refresh();
     if (!photoSaved) setStatus("The photo is on the dossier, but it's too big to keep in this browser's draft. Save the image before you close the page.");
   };
   img.onerror = () => setStatus("That file isn't an image this browser can read.", true);
