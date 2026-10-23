@@ -63,6 +63,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .row.lore > .v { padding: 6px 12px 8px; min-width: 0; }
 .cell { display: flex; align-items: baseline; gap: 8px; padding: 7px 12px; min-width: 0; flex-wrap: wrap; }
 .cell.stack { display: block; }
+/* the four boxes beside the photo always put the answer under the label, so they line up whatever the value length */
+.row.split > .cell { display: block; }
+.row.split > .cell > .k { display: block; margin-bottom: 4px; }
+.row.split > .cell > .f, .row.split > .cell > .fixed { display: block; width: 100%; }
+.row.split > .cell > .fixed { padding: 3px 2px 3.5px; line-height: 1.35; }
 .k { font-family: var(--head); font-weight: 800; font-size: 17px; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); white-space: nowrap; }
 .fixed { font-family: var(--type); font-size: 18px; color: var(--ink); }
 
